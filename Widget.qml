@@ -37,7 +37,8 @@ BarWidget {
   ]
 
   readonly property var keyHelp: [
-    { keys: "1 – 9", action: "Play that numbered row" },
+    { keys: "1 – 9", action: "Play that numbered source" },
+    { keys: "0", action: "Open cliamp" },
     { keys: "↑ ↓", action: "Move selection" },
     { keys: "⏎", action: "Play selected" },
     { keys: "← →", action: "Previous / next track" },
@@ -102,13 +103,22 @@ BarWidget {
     cursorIndex = (cursorIndex + delta + itemCount) % itemCount
   }
 
+  // Sources are numbered 1-9 in the order they appear. "Open cliamp" is a
+  // fixed action rather than a source, so it keeps a fixed key of its own and
+  // does not shift as favourites and playlists come and go.
   function shortcutFor(index) {
+    if (index === windowIndex)
+      return "0"
     return index < 9 ? String(index + 1) : ""
   }
 
   function activateShortcut(digit) {
+    if (digit === "0") {
+      activateIndex(windowIndex)
+      return
+    }
     var index = parseInt(digit, 10) - 1
-    if (index >= 0 && index < itemCount)
+    if (index >= 0 && index < windowIndex)
       activateIndex(index)
   }
 
@@ -206,7 +216,7 @@ BarWidget {
         else root.close()
       }
       onTextKey: function(t) {
-        if (t >= "1" && t <= "9") root.activateShortcut(t)
+        if (t >= "0" && t <= "9") root.activateShortcut(t)
         else if (t === "?") root.showHelp = !root.showHelp
         else if (t === "s") root.service && root.service.toggleShuffle()
         else if (t === "r") root.service && root.service.cycleRepeat()
