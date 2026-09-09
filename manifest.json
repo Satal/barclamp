@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "id": "satal.cliamp",
+  "name": "Cliamp",
+  "version": "1.0.0",
+  "author": "Sam Jenkins",
+  "description": "cliamp playback control with a favourites and playlist picker",
+  "kinds": [
+    "service",
+    "bar-widget"
+  ],
+  "keepLoaded": true,
+  "entryPoints": {
+    "service": "Service.qml",
+    "barWidget": "Widget.qml"
+  },
+  "barWidget": {
+    "displayName": "Cliamp",
+    "description": "Now playing, transport, and a source picker",
+    "category": "Media",
+    "allowMultiple": false,
+    "defaultSection": "right"
+  }
+}

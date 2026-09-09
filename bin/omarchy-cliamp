@@ -1,0 +1,254 @@
+#!/bin/bash
+
+# Bridge between the Omarchy bar and cliamp.
+#
+# The shell plugin (satal.cliamp) reads playback state straight off MPRIS,
+# which cliamp publishes as org.mpris.MediaPlayer2.cliamp. This script covers
+# what MPRIS does not: enumerating favourites and playlists, switching source,
+# and starting cliamp when it isn't running.
+
+set -uo pipefail
+
+CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/cliamp"
+FAVORITES="$CONFIG_DIR/favorites.toml"
+LOG_FILE="${XDG_STATE_HOME:-$HOME/.local/state}/omarchy/cliamp.log"
+
+# cliamp is a TUI: the player and the interface are one process, so starting it
+# means opening its window. A cold start needs time to build its socket.
+START_TIMEOUT=20
+
+usage() {
+  cat <<'USAGE'
+Usage: omarchy-cliamp <command> [args]
+
+  status              Playback state as JSON (ok:false when not running)
+  sources             Favourites and playlists as JSON
+  play <path>         Play a stream URL or local file now
+  source <path>       Same as play
+  shuffle [on|off|toggle]
+  repeat [off|all|one|cycle]
+  playlist <name>     Load a named playlist and play it
+  toggle              Play/pause, starting cliamp and resuming if it is not running
+  pause               Pause playback
+  next | previous     Skip track
+  show                Open or focus the cliamp window
+  ensure              Start cliamp if it is not already running
+USAGE
+}
+
+log() {
+  mkdir -p "${LOG_FILE%/*}" 2>/dev/null
+  printf '%s %s\n' "$(date '+%F %T')" "$*" >>"$LOG_FILE" 2>/dev/null
+  local lines
+  lines=$(wc -l <"$LOG_FILE" 2>/dev/null || echo 0)
+  ((lines > 500)) && { tail -n 200 "$LOG_FILE" >"$LOG_FILE.tmp" 2>/dev/null && mv "$LOG_FILE.tmp" "$LOG_FILE"; }
+  return 0
+}
+
+notify() {
+  log "NOTIFY $*"
+  command -v omarchy-notification-send >/dev/null 2>&1 &&
+    omarchy-notification-send "$1" >/dev/null 2>&1
+  return 0
+}
+
+# ------------------------------------------------------------------- running
+
+running() {
+  cliamp status --json >/dev/null 2>&1
+}
+
+# Start cliamp and wait until it answers. Returns non-zero if it never does.
+ensure_running() {
+  if running; then
+    return 0
+  fi
+
+  log "cliamp not running; starting it"
+  omarchy-launch-or-focus-tui cliamp >/dev/null 2>&1 &
+
+  local deadline=$((SECONDS + START_TIMEOUT))
+  while ((SECONDS < deadline)); do
+    if running; then
+      log "cliamp is up"
+      # The socket answers slightly before the player is ready for commands.
+      sleep 0.5
+      return 0
+    fi
+    sleep 0.25
+  done
+
+  log "cliamp did not start within ${START_TIMEOUT}s"
+  notify "cliamp did not start"
+  return 1
+}
+
+# --------------------------------------------------------------------- state
+
+cmd_status() {
+  if ! running; then
+    echo '{"ok":false,"state":"stopped"}'
+    return 0
+  fi
+  cliamp status --json 2>/dev/null
+}
+
+# Favourites come from cliamp's own favorites.toml rather than the CLI, because
+# the file carries the stream URL and the realtime flag that the list output
+# drops. Playlists still come from the CLI, which is the only thing that knows
+# about them.
+cmd_sources() {
+  local playlists
+  playlists=$(cliamp playlist list 2>/dev/null || true)
+
+  FAVORITES="$FAVORITES" PLAYLIST_TEXT="$playlists" python3 <<'PY'
+import json, os, re, tomllib
+
+favorites = []
+path = os.environ["FAVORITES"]
+try:
+    with open(path, "rb") as fh:
+        data = tomllib.load(fh)
+    for entry in data.get("entry", []):
+        favorites.append({
+            "title": entry.get("title") or entry.get("path", ""),
+            "path": entry.get("path", ""),
+            "realtime": bool(entry.get("realtime", False)),
+        })
+except (OSError, tomllib.TOMLDecodeError):
+    pass
+
+# "  Name   N tracks" — Favorites is dropped because it duplicates the list
+# above, and would otherwise appear twice in the picker.
+playlists = []
+for line in os.environ.get("PLAYLIST_TEXT", "").splitlines():
+    m = re.match(r"\s+(.+?)\s\s+(\d+)\s+tracks?\s*$", line)
+    if not m:
+        continue
+    name, count = m.group(1).strip(), int(m.group(2))
+    if name.lower() == "favorites":
+        continue
+    playlists.append({"name": name, "count": count})
+
+print(json.dumps({"favorites": favorites, "playlists": playlists}))
+PY
+}
+
+# ------------------------------------------------------------------ playback
+
+# Switch playback to a single source (a stream URL or a local file).
+#
+# cliamp's v2 IPC API has `url.load`, which resolves a path and optionally
+# starts playing it. That replaces a good deal of fumbling: `cliamp queue`
+# appends to the end of the queue and leaves the current track playing, `next`
+# only steps forward one, MPRIS OpenUri is not implemented, and
+# `playlist create` rejects URLs because it stats them as files.
+#
+# url.load appends, so the queue is cleared first — picking a source from the
+# bar means "play this now", not "add this to what is already queued".
+cmd_source() {
+  local target=${1:-}
+  if [[ -z $target ]]; then
+    echo "omarchy-cliamp: source needs a path or URL" >&2
+    return 1
+  fi
+
+  ensure_running || return 1
+  log "switch to $target"
+
+  cliamp remote call queue.clear --wait >/dev/null 2>&1
+  local out
+  out=$(cliamp remote call url.load --wait --params \
+    "$(printf '{"path":%s,"play":true}' "$(json_string "$target")")" 2>&1)
+
+  if [[ $out != *'"ok":true'* ]]; then
+    log "url.load failed: ${out:0:200}"
+    notify "Could not play that source"
+    return 1
+  fi
+  return 0
+}
+
+# Quote a value for embedding in a JSON object.
+json_string() {
+  python3 -c 'import json,sys; print(json.dumps(sys.argv[1]))' "$1"
+}
+
+cmd_play() {
+  cmd_source "${1:-}"
+}
+
+cmd_shuffle() {
+  ensure_running || return 1
+  log "shuffle ${1:-toggle}"
+  cliamp shuffle "${1:-toggle}" >/dev/null 2>&1
+}
+
+cmd_repeat() {
+  ensure_running || return 1
+  log "repeat ${1:-cycle}"
+  cliamp repeat "${1:-cycle}" >/dev/null 2>&1
+}
+
+cmd_playlist() {
+  local name=${1:-}
+  if [[ -z $name ]]; then
+    echo "omarchy-cliamp: playlist needs a name" >&2
+    return 1
+  fi
+
+  ensure_running || return 1
+  log "load playlist $name"
+  cliamp load "$name" >/dev/null 2>&1
+  cliamp play >/dev/null 2>&1
+}
+
+# The media key lands here. When cliamp is not running there is nothing to
+# toggle, so it is started and told to play rather than doing nothing.
+cmd_toggle() {
+  if running; then
+    log "toggle"
+    cliamp toggle >/dev/null 2>&1
+    return 0
+  fi
+
+  log "toggle with cliamp stopped; starting it"
+  ensure_running || return 1
+  cliamp play >/dev/null 2>&1
+}
+
+cmd_simple() {
+  if ! running; then
+    log "$1 requested but cliamp is not running"
+    return 1
+  fi
+  log "$1"
+  cliamp "$1" >/dev/null 2>&1
+}
+
+cmd_show() {
+  omarchy-launch-or-focus-tui cliamp >/dev/null 2>&1 &
+  return 0
+}
+
+case "${1:-}" in
+status) cmd_status ;;
+sources) cmd_sources ;;
+play) cmd_play "${2:-}" ;;
+source) cmd_source "${2:-}" ;;
+shuffle) cmd_shuffle "${2:-toggle}" ;;
+repeat) cmd_repeat "${2:-cycle}" ;;
+playlist) cmd_playlist "${2:-}" ;;
+toggle | playpause) cmd_toggle ;;
+pause) cmd_simple pause ;;
+next) cmd_simple next ;;
+previous | prev) cmd_simple prev ;;
+show) cmd_show ;;
+ensure) ensure_running ;;
+-h | --help | help | "") usage ;;
+*)
+  echo "omarchy-cliamp: unknown command '$1'" >&2
+  usage >&2
+  exit 1
+  ;;
+esac
