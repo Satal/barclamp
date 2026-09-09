@@ -12,8 +12,11 @@ Item {
 
   property var shell: null
 
-  // Raised by IPC so a keybinding can open the picker without the mouse.
-  signal popupToggleRequested()
+  // Opening the picker is deliberately not handled here. A service is a
+  // singleton but bar widgets are instantiated once per monitor, so a signal
+  // from here would open a popup on every screen at once. The keybinding
+  // calls `omarchy-shell shell toggle <plugin-id>` instead, which routes
+  // through the bar to the widget on the focused monitor.
 
   readonly property var players: Mpris.players ? Mpris.players.values : []
 
@@ -251,7 +254,6 @@ Item {
     function pause(): string { return root.runAction("pause") }
     function next(): string { return root.runAction("next") }
     function previous(): string { return root.runAction("previous") }
-    function show(): string { root.popupToggleRequested(); return "ok" }
     function window(): string { return root.showWindow() }
     function refresh(): string { root.refreshSources(); root.refreshModes(); return "ok" }
     function shuffle(): string { return root.toggleShuffle() }

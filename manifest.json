@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
-  "id": "satal.cliamp",
+  "id": "io.github.satal.cliamp",
   "name": "Cliamp",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "author": "Sam Jenkins",
   "license": "MIT",
   "description": "cliamp playback control with a favourites and playlist picker",

@@ -82,14 +82,14 @@ selection is ever showing.
 
 ```bash
 omarchy plugin add https://github.com/Satal/barclamp.git
-omarchy plugin enable satal.cliamp --section right
+omarchy plugin enable io.github.satal.cliamp --section right
 ```
 
 Then put the helper on your `PATH` — the plugin installer deliberately only
 clones files, so this step is yours:
 
 ```bash
-ln -s ~/.config/omarchy/plugins/satal.cliamp/bin/omarchy-cliamp ~/.local/bin/
+ln -s ~/.config/omarchy/plugins/io.github.satal.cliamp/bin/omarchy-cliamp ~/.local/bin/
 ```
 
 Finally append the keybindings from
@@ -103,7 +103,7 @@ hyprctl reload
 To place the icon somewhere specific:
 
 ```bash
-omarchy bar move satal.cliamp --before omarchy.audio
+omarchy bar move io.github.satal.cliamp --before omarchy.audio
 ```
 
 ## Keeping cliamp off your screen
@@ -188,6 +188,15 @@ error), so neither state nor control goes through MPRIS. Both use
 `cliamp shuffle` / `cliamp repeat`, read back from `cliamp status --json`,
 refreshed when the popup opens and after a toggle rather than polled.
 
+### One popup, not one per monitor
+
+A bar widget is instantiated once per monitor, so a keybinding that talked to
+the widgets directly would open a popup on every screen at once. The picker is
+summoned with `omarchy-shell shell toggle <plugin-id>` instead, which goes
+through `Bar.findPanelWidget` and picks the single instance on the focused
+monitor. That is why the widget exposes `open()`, `close()` and `opened` — it
+is the shape the bar's routing looks for.
+
 ### Keyboard focus
 
 The popup is a `KeyboardPanel` (layer shell) rather than a `PopupCard`
@@ -228,9 +237,11 @@ omarchy-shell cliamp next
 omarchy-shell cliamp previous
 omarchy-shell cliamp shuffle     # toggle
 omarchy-shell cliamp repeat      # cycle
-omarchy-shell cliamp show        # toggle the picker
 omarchy-shell cliamp window      # open/focus the cliamp TUI
 omarchy-shell cliamp refresh     # re-read favourites, playlists and modes
+
+# Opening the picker goes through the bar, not the plugin's own IPC:
+omarchy-shell shell toggle io.github.satal.cliamp
 ```
 
 Helper failures are logged to `~/.local/state/omarchy/cliamp.log`.

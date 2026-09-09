@@ -17,6 +17,9 @@ o.bind("XF86AudioPause", "Play/pause music", "omarchy-shell cliamp playPause", {
 o.bind("XF86AudioNext", "Next track", "omarchy-shell cliamp next", { locked = true })
 o.bind("XF86AudioPrev", "Previous track", "omarchy-shell cliamp previous", { locked = true })
 
--- Open the picker to choose a favourite stream or a playlist. Omarchy's stock
--- SUPER + SHIFT + ALT + M still opens the full cliamp TUI.
-o.bind("SUPER + ALT + M", "Choose music", "omarchy-shell cliamp show")
+-- Open the picker to choose a favourite stream or a playlist. Routed through
+-- the shell rather than the plugin's own IPC: bar widgets are instantiated once
+-- per monitor, and the shell picks the one on the focused screen instead of
+-- opening a popup on every display. Omarchy's stock SUPER + SHIFT + ALT + M
+-- still opens the full cliamp TUI.
+o.bind("SUPER + ALT + M", "Choose music", "omarchy-shell shell toggle io.github.satal.cliamp")

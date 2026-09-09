@@ -9,9 +9,9 @@ import qs.Commons
 // way to start music, not just to control it.
 BarWidget {
   id: root
-  moduleName: "satal.cliamp"
+  moduleName: "io.github.satal.cliamp"
 
-  readonly property var service: bar && bar.shell ? bar.shell.serviceFor("satal.cliamp") : null
+  readonly property var service: bar && bar.shell ? bar.shell.serviceFor("io.github.satal.cliamp") : null
 
   readonly property bool running: service ? service.running : false
   readonly property bool playing: service ? service.isPlaying : false
@@ -67,6 +67,15 @@ BarWidget {
   readonly property int playlistOffset: favorites.length
   readonly property int windowIndex: favorites.length + playlists.length
   readonly property int itemCount: windowIndex + 1
+
+  // Shape contract for the bar's summon/hide/toggle routing: Bar.findPanelWidget
+  // requires open/close/opened on the bar-widget root. A widget is instantiated
+  // once per monitor, so a keybinding that talked to the widgets directly would
+  // open a popup on every screen at once; going through the bar means it picks
+  // the single instance on the focused monitor.
+  readonly property bool opened: popupOpen
+
+  function open() { openPopup() }
 
   function close() { popupOpen = false }
 
@@ -147,11 +156,6 @@ BarWidget {
     if (repeatMode === "All") return "󰑖"
     if (repeatMode === "One") return "󰑘"
     return "󰑗"
-  }
-
-  Connections {
-    target: root.service
-    function onPopupToggleRequested() { root.togglePopup() }
   }
 
   implicitWidth: button.implicitWidth
