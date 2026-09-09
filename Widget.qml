@@ -37,6 +37,7 @@ BarWidget {
   ]
 
   readonly property var keyHelp: [
+    { keys: "1 – 9", action: "Play that numbered row" },
     { keys: "↑ ↓", action: "Move selection" },
     { keys: "⏎", action: "Play selected" },
     { keys: "← →", action: "Previous / next track" },
@@ -99,6 +100,16 @@ BarWidget {
     if (itemCount < 1)
       return
     cursorIndex = (cursorIndex + delta + itemCount) % itemCount
+  }
+
+  function shortcutFor(index) {
+    return index < 9 ? String(index + 1) : ""
+  }
+
+  function activateShortcut(digit) {
+    var index = parseInt(digit, 10) - 1
+    if (index >= 0 && index < itemCount)
+      activateIndex(index)
   }
 
   function activateIndex(index) {
@@ -195,7 +206,8 @@ BarWidget {
         else root.close()
       }
       onTextKey: function(t) {
-        if (t === "?") root.showHelp = !root.showHelp
+        if (t >= "1" && t <= "9") root.activateShortcut(t)
+        else if (t === "?") root.showHelp = !root.showHelp
         else if (t === "s") root.service && root.service.toggleShuffle()
         else if (t === "r") root.service && root.service.cycleRepeat()
         else if (t === "p") root.act("playPause")
@@ -444,6 +456,7 @@ BarWidget {
               glyph: modelData.realtime ? "󰐹" : "󰎈"
               playing: root.service ? root.service.isCurrent(modelData.path) : false
               cursored: root.cursorActive && root.cursorIndex === index
+              shortcut: root.shortcutFor(index)
               onActivated: root.activateIndex(index)
               onHovered: root.cursorActive = false
             }
@@ -473,6 +486,7 @@ BarWidget {
               glyph: "󰲸"
               playing: false
               cursored: root.cursorActive && root.cursorIndex === root.playlistOffset + index
+              shortcut: root.shortcutFor(root.playlistOffset + index)
               onActivated: root.activateIndex(root.playlistOffset + index)
               onHovered: root.cursorActive = false
             }
@@ -493,6 +507,7 @@ BarWidget {
           glyph: "󰆍"
           playing: false
           cursored: root.cursorActive && root.cursorIndex === root.windowIndex
+          shortcut: root.shortcutFor(root.windowIndex)
           onActivated: root.activateIndex(root.windowIndex)
           onHovered: root.cursorActive = false
         }

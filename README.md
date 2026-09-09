@@ -47,6 +47,7 @@ chosen without touching the mouse.
 
 | Key | Action |
 |---|---|
+| `1` – `9` | Play that numbered row directly |
 | `↑` `↓` (or `k` `j`) | Move the cursor. The first press reveals it without moving |
 | `Enter` / `Space` | Play the selected source |
 | `←` `→` | Previous / next track |
@@ -55,6 +56,11 @@ chosen without touching the mouse.
 | `p` | Play / pause |
 | `?` | Show every shortcut, including the global ones |
 | `Esc` | Close the shortcut list, or the popup |
+
+Every row in the picker carries its number on the right, so `1` plays the
+first favourite, `2` the next row down, and so on. The numbering runs
+continuously through favourites, playlists and the "open cliamp" row, which
+means the digit shown beside a row is always the digit that plays it.
 
 Two highlights mean different things and can appear at once: a **filled** row
 is the source you are listening to, an **outlined** row is where the keyboard

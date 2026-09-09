@@ -19,6 +19,10 @@ BorderSurface {
   property bool playing: false
   property bool cursored: false
 
+  // Number key that plays this row, shown as a dim hint on the right. Empty
+  // past the ninth row, where there is no single key left to offer.
+  property string shortcut: ""
+
   signal activated()
   signal hovered()
 
@@ -55,7 +59,8 @@ BorderSurface {
     }
 
     Column {
-      width: parent.width - Style.space(24)
+      // Leaves room for the glyph on the left and the number hint on the right.
+      width: parent.width - Style.space(24) - Style.space(16)
       spacing: Style.space(1)
       anchors.verticalCenter: parent.verticalCenter
 
@@ -80,6 +85,17 @@ BorderSurface {
         elide: Text.ElideRight
         visible: text !== ""
       }
+    }
+
+    Text {
+      text: row.shortcut
+      color: Qt.darker(row.fg, row.cursored || row.playing ? 1.3 : 2.0)
+      font.family: row.bar ? row.bar.fontFamily : Style.font.family
+      font.pixelSize: Style.font.caption
+      width: Style.space(10)
+      horizontalAlignment: Text.AlignRight
+      anchors.verticalCenter: parent.verticalCenter
+      visible: text !== ""
     }
   }
 
