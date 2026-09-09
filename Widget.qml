@@ -218,8 +218,8 @@ BarWidget {
       onTextKey: function(t) {
         if (t >= "0" && t <= "9") root.activateShortcut(t)
         else if (t === "?") root.showHelp = !root.showHelp
-        else if (t === "s") root.service && root.service.toggleShuffle()
-        else if (t === "r") root.service && root.service.cycleRepeat()
+        else if (t === "s" && root.service) root.service.toggleShuffle()
+        else if (t === "r" && root.service) root.service.cycleRepeat()
         else if (t === "p") root.act("playPause")
       }
 
