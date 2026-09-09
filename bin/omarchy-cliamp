@@ -226,7 +226,34 @@ cmd_simple() {
   cliamp "$1" >/dev/null 2>&1
 }
 
+# Reveal the cliamp window.
+#
+# A window parked on a special workspace does not appear just because it was
+# focused, so a plain launch-or-focus silently does nothing once cliamp is
+# stashed on the scratchpad. The special workspace has to be toggled instead.
 cmd_show() {
+  local ws
+  ws=$(hyprctl clients -j 2>/dev/null |
+    jq -r '[ .[] | select(.class | test("cliamp"; "i")) | .workspace.name ] | first // empty' 2>/dev/null)
+
+  if [[ -z $ws ]]; then
+    log "show: cliamp not running, launching"
+    omarchy-launch-or-focus-tui cliamp >/dev/null 2>&1 &
+    return 0
+  fi
+
+  if [[ $ws == special:* ]]; then
+    local shown
+    shown=$(hyprctl monitors -j 2>/dev/null |
+      jq -r --arg ws "$ws" '[ .[] | select(.specialWorkspace.name == $ws) ] | length' 2>/dev/null)
+    if [[ ${shown:-0} -eq 0 ]]; then
+      log "show: revealing $ws"
+      hyprctl dispatch "hl.dsp.workspace.toggle_special(\"${ws#special:}\")" >/dev/null 2>&1
+      return 0
+    fi
+    log "show: $ws already visible"
+  fi
+
   omarchy-launch-or-focus-tui cliamp >/dev/null 2>&1 &
   return 0
 }

@@ -103,6 +103,27 @@ To place the icon somewhere specific:
 omarchy bar move satal.cliamp --before omarchy.audio
 ```
 
+## Keeping cliamp off your screen
+
+cliamp's window **is** the player — the TUI and the audio are one process, so
+closing the window stops the music. It can be hidden, though. Park it on
+Omarchy's scratchpad and it keeps playing while taking no screen space:
+
+```lua
+-- ~/.config/hypr/hyprland.lua
+o.window({ class = "^org\\.omarchy\\.cliamp$" }, { workspace = "special:scratchpad silent" })
+```
+
+`silent` matters: without it, launching cliamp drags you onto the special
+workspace. With it, cliamp starts hidden and you stay where you were.
+
+`SUPER + S` (Omarchy's stock binding) brings it up when you want to look at
+it, and hides it again. "Open cliamp" in the picker does the same thing.
+
+Note that a window on a special workspace does not appear merely because it
+was focused, which is why the helper toggles the workspace rather than
+calling `omarchy-launch-or-focus-tui`.
+
 ## Offline music
 
 cliamp playlists can reference a **directory** rather than a fixed list of
